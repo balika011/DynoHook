@@ -22,10 +22,10 @@ endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(DYNOHOOK_BUILD_64 ON)
-	set(DYNOHOOK_BUILD_PREFIX "x64")
+    set(DYNOHOOK_BUILD_PREFIX "x64")
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
     set(DYNOHOOK_BUILD_32 ON)
-	set(DYNOHOOK_BUILD_PREFIX "x86")
+    set(DYNOHOOK_BUILD_PREFIX "x86")
 endif()
 
 if(DYNOHOOK_BUILD_32)
@@ -44,7 +44,6 @@ option(DYNOHOOK_BUILD_TESTS "Build dll & lib instead of tests" OFF)
 
 option(DYNOHOOK_BUILD_SHARED_LIB "Build dynohook as shared library" OFF)
 option(DYNOHOOK_BUILD_SHARED_ASMTK "Build asmtk as shared library" OFF)
-option(DYNOHOOK_BUILD_SHARED_ASMJIT "Build asmjit as shared library" ${DYNOHOOK_BUILD_SHARED_ASMTK})
 option(DYNOHOOK_BUILD_SHARED_ZYDIS "Build zydis as shared library" OFF)
 
 option(DYNOHOOK_USE_EXTERNAL_ASMTK "Use external asmtk library" OFF)
@@ -64,9 +63,9 @@ option(DYNOHOOK_FEATURE_LOGGING "Implement logging functionality" On)
 #
 
 if(DYNOHOOK_BUILD_TESTS)
-	add_subdirectory(catch2)
-	
-	if(MSVC)
+    add_subdirectory(catch2)
+    
+    if(MSVC)
         if(DYNOHOOK_BUILD_STATIC_RUNTIME)
             set_target_properties(Catch2 PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
         else()
@@ -113,6 +112,10 @@ if(DYNOHOOK_FEATURE_DETOURS AND NOT DYNOHOOK_USE_EXTERNAL_ASMTK)
         endif()
     endif()
 
+    if(DYNOHOOK_BUILD_SHARED_LIB)
+        set_target_properties(asmtk PROPERTIES COMPILE_FLAGS "-fPIC -static-libgcc -static-libstdc++")
+    endif()
+
 endif()
 
 #
@@ -141,11 +144,20 @@ if(NOT DYNOHOOK_USE_EXTERNAL_ZYDIS)
             set_target_properties(Zydis PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
         endif()
     endif()
+
+    if(DYNOHOOK_BUILD_SHARED_LIB)
+        set_target_properties(Zycore PROPERTIES COMPILE_FLAGS "-fPIC -static-libgcc -static-libstdc++")
+        set_target_properties(Zydis PROPERTIES COMPILE_FLAGS "-fPIC -static-libgcc -static-libstdc++")
+    endif()
 endif()
 
 #
 # Dynohook
 #
+
+if(DYNOHOOK_BUILD_SHARED_LIB)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -static-libgcc -static-libstdc++")
+endif()
 
 if(NOT DYNOHOOK_BUILD_TESTS)
     if(DYNOHOOK_BUILD_SHARED_LIB)
@@ -164,6 +176,10 @@ if(MSVC)
     else()
         set_target_properties(${PROJECT_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
     endif()
+endif()
+
+if(DYNOHOOK_BUILD_SHARED_LIB)
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-fPIC -static-libgcc -static-libstdc++")
 endif()
 
 if(DYNOHOOK_BUILD_32)
@@ -230,7 +246,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
         ${PROJECT_SOURCE_DIR}/src/tests/effect_tracker.cpp
         ${PROJECT_SOURCE_DIR}/src/tests/stack_canary.cpp
-		)
+        )
 
 if(DYNOHOOK_BUILD_32)
     target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src/x86_hook.cpp)
@@ -243,23 +259,23 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src/pch.
 set(DYNOHOOK_EXPORT_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/exports)
 set(DYNOHOOK_EXPORT_HEADER ${DYNOHOOK_EXPORT_FOLDER}/${PROJECT_NAME}_export.h)
 if(NOT DYNOHOOK_BUILD_TESTS)
-	include(GenerateExportHeader)
-	generate_export_header(${PROJECT_NAME}
-			BASE_NAME DYNO
-			EXPORT_MACRO_NAME DYNO_API
-			NO_EXPORT_MACRO_NAME DYNO_PRIVATE
-			EXPORT_FILE_NAME ${DYNOHOOK_EXPORT_HEADER}
-			STATIC_DEFINE DYNO_STATIC
-			)
-	target_include_directories(${PROJECT_NAME} PUBLIC
+    include(GenerateExportHeader)
+    generate_export_header(${PROJECT_NAME}
+            BASE_NAME DYNO
+            EXPORT_MACRO_NAME DYNO_API
+            NO_EXPORT_MACRO_NAME DYNO_PRIVATE
+            EXPORT_FILE_NAME ${DYNOHOOK_EXPORT_HEADER}
+            STATIC_DEFINE DYNO_STATIC
+            )
+    target_include_directories(${PROJECT_NAME} PUBLIC
             $<BUILD_INTERFACE:${DYNOHOOK_EXPORT_FOLDER}>
             #$<INSTALL_INTERFACE:include>
     )
     install(FILES ${DYNOHOOK_EXPORT_HEADER} DESTINATION include)
 else()
-	target_compile_options(${PROJECT_NAME} PRIVATE
-		$<$<BOOL:${UNIX}>:-fpermissive>
-	)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<BOOL:${UNIX}>:-fpermissive>
+    )
     target_include_directories(${PROJECT_NAME} PUBLIC
             $<BUILD_INTERFACE:${DYNOHOOK_EXPORT_FOLDER}>
             #$<INSTALL_INTERFACE:include>
@@ -298,6 +314,10 @@ function(link_asmjit)
         else()
             target_compile_options(asmjit PUBLIC -Wno-deprecated-anon-enum-enum-conversion)
         endif()
+
+        if(DYNOHOOK_BUILD_SHARED_LIB)
+            set_target_properties(asmjit PROPERTIES COMPILE_FLAGS "-fPIC -static-libgcc -static-libstdc++")
+        endif()
     endif()
 endfunction()
 
@@ -313,20 +333,20 @@ if(DYNOHOOK_FEATURE_DETOURS)
         target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${ASMTK_SRC}>)
     endif()
 
-	set(DYNOHOOK_DETOUR_HEADERS
+    set(DYNOHOOK_DETOUR_HEADERS
             ${PROJECT_SOURCE_DIR}/include/dynohook/detours/detour.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/detours/nat_detour.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/detours/${DYNOHOOK_BUILD_PREFIX}_detour.h)
 
-	install(FILES ${DYNOHOOK_DETOUR_HEADERS} DESTINATION include/dynohook/detours)
+    install(FILES ${DYNOHOOK_DETOUR_HEADERS} DESTINATION include/dynohook/detours)
 
-	target_sources(${PROJECT_NAME} PRIVATE
+    target_sources(${PROJECT_NAME} PRIVATE
             ${PROJECT_SOURCE_DIR}/src/detours/detour.cpp
             ${PROJECT_SOURCE_DIR}/src/detours/${DYNOHOOK_BUILD_PREFIX}_detour.cpp
-	)
+    )
 
-	# only build tests if making exe
-	if(DYNOHOOK_BUILD_TESTS)
+    # only build tests if making exe
+    if(DYNOHOOK_BUILD_TESTS)
         if(DYNOHOOK_BUILD_64)
             target_sources(${PROJECT_NAME} PRIVATE
                 ${PROJECT_SOURCE_DIR}/tests/test_detour_translation_x64.cpp
@@ -337,48 +357,48 @@ if(DYNOHOOK_FEATURE_DETOURS)
             target_sources(${PROJECT_NAME} PRIVATE
                     ${PROJECT_SOURCE_DIR}/tests/test_detour_x86.cpp)
         endif()
-	endif()
+    endif()
 endif()
 
 #Feature/Virtuals
 if(DYNOHOOK_FEATURE_VIRTUALS)
-	set(DYNOHOOK_VIRTUAL_HEADERS
+    set(DYNOHOOK_VIRTUAL_HEADERS
             ${PROJECT_SOURCE_DIR}/include/dynohook/virtuals/vtable.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/virtuals/vhook.h)
-	install(FILES ${DYNOHOOK_VIRTUAL_HEADERS} DESTINATION include/dynohook/virtuals)
+    install(FILES ${DYNOHOOK_VIRTUAL_HEADERS} DESTINATION include/dynohook/virtuals)
 
-	target_sources(${PROJECT_NAME} PRIVATE
+    target_sources(${PROJECT_NAME} PRIVATE
             ${PROJECT_SOURCE_DIR}/src/virtuals/vtable.cpp
             ${PROJECT_SOURCE_DIR}/src/virtuals/vhook.cpp)
 
-	# only build tests if making exe
-	if(DYNOHOOK_BUILD_TESTS)
-		target_sources(${PROJECT_NAME} PRIVATE
-			${PROJECT_SOURCE_DIR}/tests/test_virtual.cpp)
-	endif()
+    # only build tests if making exe
+    if(DYNOHOOK_BUILD_TESTS)
+        target_sources(${PROJECT_NAME} PRIVATE
+            ${PROJECT_SOURCE_DIR}/tests/test_virtual.cpp)
+    endif()
 endif()
 
 #Feature/CallConv
 if(DYNOHOOK_BUILD_64)
-	set(DYNOHOOK_CALLCONV_HEADERS
+    set(DYNOHOOK_CALLCONV_HEADERS
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x64_windows_call.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x64_systemV_call.h)
-	install(FILES ${DYNOHOOK_CALLCONV_HEADERS} DESTINATION include/dynohook/conventions)
+    install(FILES ${DYNOHOOK_CALLCONV_HEADERS} DESTINATION include/dynohook/conventions)
 
-	target_sources(${PROJECT_NAME} PRIVATE
+    target_sources(${PROJECT_NAME} PRIVATE
             ${PROJECT_SOURCE_DIR}/src/conventions/x64_windows_call.cpp
             ${PROJECT_SOURCE_DIR}/src/conventions/x64_systemV_call.cpp)
 elseif(DYNOHOOK_BUILD_32)
-	set(DYNOHOOK_CALLCONV_HEADERS
+    set(DYNOHOOK_CALLCONV_HEADERS
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x86_gcc_cdecl.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x86_gcc_thiscall.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x86_ms_cdecl.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x86_ms_fastcall.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x86_ms_stdcall.h
             ${PROJECT_SOURCE_DIR}/include/dynohook/conventions/x86_ms_thiscall.h)
-	install(FILES ${DYNOHOOK_CALLCONV_HEADERS} DESTINATION include/dynohook/conventions)
+    install(FILES ${DYNOHOOK_CALLCONV_HEADERS} DESTINATION include/dynohook/conventions)
 
-	target_sources(${PROJECT_NAME} PRIVATE
+    target_sources(${PROJECT_NAME} PRIVATE
             ${PROJECT_SOURCE_DIR}/src/conventions/x86_ms_cdecl.cpp
             ${PROJECT_SOURCE_DIR}/src/conventions/x86_ms_fastcall.cpp
             ${PROJECT_SOURCE_DIR}/src/conventions/x86_ms_stdcall.cpp
@@ -396,12 +416,12 @@ endif()
 
 #Tests
 if(DYNOHOOK_BUILD_TESTS)
-	target_link_libraries(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:Catch2>)
+    target_link_libraries(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:Catch2>)
     target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/catch2/src/catch2>)
-	target_sources(${PROJECT_NAME} PRIVATE
-		${PROJECT_SOURCE_DIR}/tests/main_tests.cpp
-	    ${PROJECT_SOURCE_DIR}/tests/test_disassembler.cpp
-		${PROJECT_SOURCE_DIR}/tests/${DYNOHOOK_OS}/test_mem_protector.cpp)
+    target_sources(${PROJECT_NAME} PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/main_tests.cpp
+        ${PROJECT_SOURCE_DIR}/tests/test_disassembler.cpp
+        ${PROJECT_SOURCE_DIR}/tests/${DYNOHOOK_OS}/test_mem_protector.cpp)
 endif()
 
 #
@@ -409,9 +429,9 @@ endif()
 #
 
 configure_package_config_file(
-		"${PROJECT_NAME}-config.cmake.in"
-		"${PROJECT_NAME}-config.cmake"
-	INSTALL_DESTINATION
+        "${PROJECT_NAME}-config.cmake.in"
+        "${PROJECT_NAME}-config.cmake"
+    INSTALL_DESTINATION
         "lib/${PROJECT_NAME}"
 )
 
