@@ -14,4 +14,4 @@
 	std::vector<t>::const_iterator begin() const { return o.begin(); } \
 	std::vector<t>::const_iterator end() const { return o.end(); } \
 	std::vector<t>::const_reverse_iterator rbegin() const { return o.rbegin(); } \
-	std::vector<t>::const_reverse_iterator rend() const { return o.rend(); }	 \
+	std::vector<t>::const_reverse_iterator rend() const { return o.rend(); }
